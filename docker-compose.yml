@@ -12,7 +12,7 @@ x-environment:
 
   # Taiga settings
   TAIGA_SECRET_KEY: "taiga-back-secret-key"
-  TAIGA_SITES_DOMAIN: "192.168.0.16:9000"
+  TAIGA_SITES_DOMAIN: "localhost:9000"
   TAIGA_SITES_SCHEME: "http"
 
   # Rabbitmq settings
@@ -65,6 +65,7 @@ services:
         - "8080:8080"
     volumes:
         - ./jenkins:/var/jenkins_home
+    command: bash -c "mkdir jenkins"
           
   taiga-db:
     image: postgres:12.3
@@ -115,12 +116,10 @@ services:
   taiga-front:
     image: taigaio/taiga-front:latest
     environment:
-      TAIGA_URL: "http://192.168.0.16:9000"
-      TAIGA_WEBSOCKETS_URL: "ws://192.168.0.16:9000"
+      TAIGA_URL: "http://localhost:9000"
+      TAIGA_WEBSOCKETS_URL: "ws://localhost:9000"
     networks:
       - taiga
-    # volumes:
-    #   - ./conf.json:/usr/share/nginx/html/conf.json
 
   taiga-events:
     image: taigaio/taiga-events:latest
