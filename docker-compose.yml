@@ -1,0 +1,179 @@
+version: "3.6"
+
+x-environment:
+  &default-back-environment
+  # Database settings
+  POSTGRES_DB: taiga
+  POSTGRES_USER: taiga
+  POSTGRES_PASSWORD: taiga
+  POSTGRES_HOST: taiga-db
+  TAIGA_ENABLE_WEBHOOKS: "True"  
+  WEBHOOKS_ENABLED: "True"
+
+  # Taiga settings
+  TAIGA_SECRET_KEY: "taiga-back-secret-key"
+  TAIGA_SITES_DOMAIN: "192.168.0.16:9000"
+  TAIGA_SITES_SCHEME: "http"
+
+  # Rabbitmq settings
+  # Should be the same as in taiga-async-rabbitmq and taiga-events-rabbitmq
+  RABBITMQ_USER: taiga
+  RABBITMQ_PASS: taiga
+
+  # Telemetry settings
+  ENABLE_TELEMETRY: "False"
+
+x-volumes:
+  &default-back-volumes
+  - taiga-static-data:/taiga-back/static
+  - taiga-media-data:/taiga-back/media
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: mysql
+    environment:
+        MYSQL_DATABASE: gogs
+        MYSQL_USER: gogs
+        MYSQL_PASSWORD: gogs
+        MYSQL_ROOT_PASSWORD: root
+    ports:
+        - "3307:3306"
+        - "33070:33060"
+    volumes:
+        - ./mysql:/var/lib/mysql
+    restart: always
+
+  gogs:
+    image: gogs/gogs:0.12
+    container_name: gogs
+    ports:
+        - "3000:3000"
+        - "2222:22"
+    volumes:
+        - ./gogs:/data
+    links:
+        - mysql
+
+  jenkins:
+    image: jenkins/jenkins:lts-alpine
+    container_name: jenkins
+    user: root
+    privileged: true
+    ports:
+        - "50000:50000"
+        - "8080:8080"
+    volumes:
+        - ./jenkins:/var/jenkins_home
+          
+  taiga-db:
+    image: postgres:12.3
+    environment:
+      POSTGRES_DB: taiga
+      POSTGRES_USER: taiga
+      POSTGRES_PASSWORD: taiga
+    volumes:
+      - taiga-db-data:/var/lib/postgresql/data
+    networks:
+      - taiga
+
+  taiga-back:
+    image: taigaio/taiga-back:latest
+    environment: *default-back-environment
+    volumes: *default-back-volumes
+    networks:
+      - taiga
+    depends_on:
+      - taiga-db
+      - taiga-events-rabbitmq
+      - taiga-async-rabbitmq
+
+  taiga-async:
+    image: taigaio/taiga-back:latest
+    entrypoint: ["/taiga-back/docker/async_entrypoint.sh"]
+    environment: *default-back-environment
+    volumes: *default-back-volumes
+    networks:
+      - taiga
+    depends_on:
+      - taiga-db
+      - taiga-back
+      - taiga-async-rabbitmq
+
+  taiga-async-rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_ERLANG_COOKIE: secret-erlang-cookie
+      RABBITMQ_DEFAULT_USER: taiga
+      RABBITMQ_DEFAULT_PASS: taiga
+      RABBITMQ_DEFAULT_VHOST: taiga
+    volumes:
+      - taiga-async-rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - taiga
+
+  taiga-front:
+    image: taigaio/taiga-front:latest
+    environment:
+      TAIGA_URL: "http://192.168.0.16:9000"
+      TAIGA_WEBSOCKETS_URL: "ws://192.168.0.16:9000"
+    networks:
+      - taiga
+    # volumes:
+    #   - ./conf.json:/usr/share/nginx/html/conf.json
+
+  taiga-events:
+    image: taigaio/taiga-events:latest
+    environment:
+      RABBITMQ_USER: taiga
+      RABBITMQ_PASS: taiga
+      TAIGA_SECRET_KEY: "taiga-back-secret-key"
+    networks:
+      - taiga
+    depends_on:
+      - taiga-events-rabbitmq
+
+  taiga-events-rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_ERLANG_COOKIE: secret-erlang-cookie
+      RABBITMQ_DEFAULT_USER: taiga
+      RABBITMQ_DEFAULT_PASS: taiga
+      RABBITMQ_DEFAULT_VHOST: taiga
+    volumes:
+      - taiga-events-rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - taiga
+
+  taiga-protected:
+    image: taigaio/taiga-protected:latest
+    environment:
+      MAX_AGE: 360
+      SECRET_KEY: "taiga-back-secret-key"
+    networks:
+      - taiga
+
+  taiga-gateway:
+    image: nginx:1.19-alpine
+    ports:
+      - "9000:80"
+    volumes:
+      - ./config/taiga-gateway/taiga.conf:/etc/nginx/conf.d/default.conf
+      - taiga-static-data:/taiga/static
+      - taiga-media-data:/taiga/media
+    networks:
+      - taiga
+    depends_on:
+      - taiga-front
+      - taiga-back
+      - taiga-events
+
+volumes:
+  taiga-static-data:
+  taiga-media-data:
+  taiga-db-data:
+  taiga-async-rabbitmq-data:
+  taiga-events-rabbitmq-data:
+
+networks:
+  taiga:
