@@ -65,7 +65,7 @@ services:
         - "8080:8080"
     volumes:
         - ./jenkins:/var/jenkins_home
-    command: bash -c "mkdir jenkins"
+
           
   taiga-db:
     image: postgres:12.3
