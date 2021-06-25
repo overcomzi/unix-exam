@@ -79,7 +79,7 @@ services:
       - taiga
 
   taiga-back:
-    image: taigaio/taiga-back:latest
+    image: taigaio/taiga-back:6.2.1
     environment: *default-back-environment
     volumes: *default-back-volumes
     networks:
@@ -90,7 +90,7 @@ services:
       - taiga-async-rabbitmq
 
   taiga-async:
-    image: taigaio/taiga-back:latest
+    image: taigaio/taiga-back:6.2.1
     entrypoint: ["/taiga-back/docker/async_entrypoint.sh"]
     environment: *default-back-environment
     volumes: *default-back-volumes
@@ -114,7 +114,7 @@ services:
       - taiga
 
   taiga-front:
-    image: taigaio/taiga-front:latest
+    image: taigaio/taiga-front:6.2.1
     environment:
       TAIGA_URL: "http://localhost:9000"
       TAIGA_WEBSOCKETS_URL: "ws://localhost:9000"
@@ -122,7 +122,7 @@ services:
       - taiga
 
   taiga-events:
-    image: taigaio/taiga-events:latest
+    image: taigaio/taiga-events:6.2.1
     environment:
       RABBITMQ_USER: taiga
       RABBITMQ_PASS: taiga
@@ -145,7 +145,7 @@ services:
       - taiga
 
   taiga-protected:
-    image: taigaio/taiga-protected:latest
+    image: taigaio/taiga-protected:6.2.1
     environment:
       MAX_AGE: 360
       SECRET_KEY: "taiga-back-secret-key"
